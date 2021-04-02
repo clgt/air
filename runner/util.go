@@ -65,7 +65,7 @@ func cleanPath(path string) string {
 func (e *Engine) isExcludeDir(path string) bool {
 	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeDir {
-		if cleanName == d {
+		if strings.HasPrefix(cleanName, d) {
 			return true
 		}
 	}
