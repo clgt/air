@@ -26,15 +26,7 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Installation
 
-### Go
-
-The classic way to install
-
-```bash
-go get -u github.com/cosmtrek/air
-```
-
-### macOS, Linux, Windows
+### Prefer install.sh
 
 ```bash
 # binary will be $(go env GOPATH)/bin/air
@@ -48,7 +40,7 @@ air -v
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
 
-### Docker way
+### Docker
 
 Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
@@ -89,23 +81,35 @@ The simplest usage is run
 air -c .air.toml
 ```
 
-While I prefer the second way
+You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
 
 ```bash
-# 1. create a new file
-touch .air.toml
+air init
+```
 
-# 2. paste `air_example.toml` into this file, and **modify it** to satisfy your needs.
+After this you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
 
-# 3. run air with your config. If file name is `.air.toml`, just run `air`.
+```bash
 air
 ```
 
-See the complete [air_example.toml](air_example.toml)
+For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
+
 
 ### Debug
 
 `air -d` prints all logs.
+
+
+## Q&A
+
+### "command not found: air" or "No such file or directory"
+
+```zsh
+export GOPATH=$HOME/xxxxx
+export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+```
 
 ## Development
 
@@ -128,6 +132,21 @@ make install
 ```
 
 BTW: Pull requests are welcome~
+
+### Release new version
+
+```
+# 1. checkout to master
+git checkout master
+
+# 2. add the version that needs to be released
+git tag v1.xx.x
+
+# 3. push to remote
+git push origin v1.xx.x
+
+the ci will processing and will release new version,wait about 5 min you can fetch the new version.
+```
 
 ## Sponsor
 

@@ -70,6 +70,11 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 
 // Run run run
 func (e *Engine) Run() {
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		writeDefaultConfig()
+		return
+	}
+
 	e.mainDebug("CWD: %s", e.config.Root)
 
 	var err error
@@ -143,9 +148,37 @@ func (e *Engine) cacheFileChecksums(root string) error {
 				e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 				return filepath.SkipDir
 			}
+
+			// Follow symbolic link
+			if e.config.Build.FollowSymlink && (info.Mode()&os.ModeSymlink) > 0 {
+				link, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					return err
+				}
+				linkInfo, err := os.Stat(link)
+				if err != nil {
+					return err
+				}
+				if linkInfo.IsDir() {
+					err = e.watchDir(link)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 		}
 
 		if e.isExcludeFile(path) || !e.isIncludeExt(path) {
+			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
+			return nil
+		}
+
+		excludeRegex, err := e.isExcludeRegex(path)
+		if err != nil {
+			return err
+		}
+		if excludeRegex {
 			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 			return nil
 		}
@@ -195,6 +228,10 @@ func (e *Engine) watchDir(path string) error {
 					break
 				}
 				if e.isExcludeFile(ev.Name) {
+					break
+				}
+				excludeRegex, _ := e.isExcludeRegex(ev.Name)
+				if excludeRegex {
 					break
 				}
 				if !e.isIncludeExt(ev.Name) {
@@ -388,7 +425,7 @@ func (e *Engine) runBin() error {
 		e.withLock(func() {
 			e.binRunning = false
 		})
-		cmdBinPath := cmdPath(e.config.binPath())
+		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
 		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 			return
 		}

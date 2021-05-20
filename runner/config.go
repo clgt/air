@@ -3,8 +3,10 @@ package runner
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"time"
 
@@ -36,11 +38,28 @@ type cfgBuild struct {
 	ExcludeDir       []string      `toml:"exclude_dir"`
 	IncludeDir       []string      `toml:"include_dir"`
 	ExcludeFile      []string      `toml:"exclude_file"`
+	ExcludeRegex     []string      `toml:"exclude_regex"`
 	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
+	FollowSymlink    bool          `toml:"follow_symlink"`
 	Delay            int           `toml:"delay"`
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
 	KillDelay        time.Duration `toml:"kill_delay"`
+	regexCompiled    []*regexp.Regexp
+}
+
+func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
+	if len(c.ExcludeRegex) > 0 && len(c.regexCompiled) == 0 {
+		c.regexCompiled = make([]*regexp.Regexp, 0, len(c.ExcludeRegex))
+		for _, s := range c.ExcludeRegex {
+			re, err := regexp.Compile(s)
+			if err != nil {
+				return nil, err
+			}
+			c.regexCompiled = append(c.regexCompiled, re)
+		}
+	}
+	return c.regexCompiled, nil
 }
 
 type cfgLog struct {
@@ -77,6 +96,41 @@ func initConfig(path string) (cfg *config, err error) {
 	}
 	err = cfg.preprocess()
 	return cfg, err
+}
+
+func writeDefaultConfig() {
+	confFiles := []string{dftTOML, dftConf}
+
+	for _, fname := range confFiles {
+		fstat, err := os.Stat(fname)
+		if err != nil && !os.IsNotExist(err) {
+			log.Fatal("failed to check for existing configuration")
+			return
+		}
+		if err == nil && fstat != nil {
+			log.Fatal("configuration already exists")
+			return
+		}
+	}
+
+	file, err := os.Create(dftTOML)
+	if err != nil {
+		log.Fatalf("failed to create a new confiuration: %+v", err)
+	}
+	defer file.Close()
+
+	config := defaultConfig()
+	configFile, err := toml.Marshal(config)
+	if err != nil {
+		log.Fatalf("failed to marshal the default configuration: %+v", err)
+	}
+
+	_, err = file.Write(configFile)
+	if err != nil {
+		log.Fatalf("failed to write to %s: %+v", dftTOML, err)
+	}
+
+	fmt.Printf("%s file created to the current directory with the default settings\n", dftTOML)
 }
 
 func defaultPathConfig() (*config, error) {
